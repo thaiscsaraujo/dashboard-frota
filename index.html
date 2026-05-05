@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Frota — Veículos Novos</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #181c27;
+    --surface2: #1e2332;
+    --border: #2a3045;
+    --accent: #4f8ef7;
+    --accent2: #3dd68c;
+    --warn: #f5a623;
+    --danger: #f25f5c;
+    --text: #e8eaf0;
+    --text2: #8891a8;
+    --text3: #4f5870;
+    --ok-bg: #1a2d1e;
+    --ok-text: #3dd68c;
+    --pend-bg: #2d2515;
+    --pend-text: #f5a623;
+    --new-bg: #2d1515;
+    --new-text: #f25f5c;
+    --na-bg: #1a1d28;
+    --na-text: #4f5870;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-head); min-height: 100vh; }
+
+  /* HEADER */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .header-icon {
+    width: 38px; height: 38px; border-radius: 9px;
+    background: linear-gradient(135deg, #2d5bbf 0%, #4f8ef7 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .header-title { font-size: 17px; font-weight: 800; letter-spacing: -0.3px; }
+  .header-sub { font-size: 11px; color: var(--text2); font-family: var(--font-mono); margin-top: 2px; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .last-update { font-family: var(--font-mono); font-size: 11px; color: var(--text3); }
+
+  /* BTN ATUALIZAR */
+  .btn-refresh {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: 8px;
+    padding: 9px 18px; font-family: var(--font-head);
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    transition: all 0.18s; letter-spacing: 0.2px;
+  }
+  .btn-refresh:hover { background: #3a7be8; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(79,142,247,0.35); }
+  .btn-refresh:active { transform: translateY(0); }
+  .btn-refresh.loading { opacity: 0.7; pointer-events: none; }
+  .btn-refresh .spin { display: inline-block; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* TABS */
+  .tabs { padding: 0 32px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; gap: 2px; }
+  .tab-btn {
+    padding: 12px 20px; font-family: var(--font-head); font-size: 13px;
+    font-weight: 600; color: var(--text2); background: none; border: none;
+    border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* MAIN */
+  .main { padding: 24px 32px; max-width: 1600px; margin: 0 auto; }
+
+  /* KPI GRID */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .kpi-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 18px;
+    position: relative; overflow: hidden;
+  }
+  .kpi-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  }
+  .kpi-card.total::before { background: var(--accent); }
+  .kpi-card.completo::before { background: var(--accent2); }
+  .kpi-card.pendente::before { background: var(--warn); }
+  .kpi-card.novo::before { background: var(--danger); }
+  .kpi-card.transf::before { background: #a78bfa; }
+  .kpi-label { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+  .kpi-val { font-size: 36px; font-weight: 800; line-height: 1; }
+  .kpi-card.total .kpi-val { color: var(--accent); }
+  .kpi-card.completo .kpi-val { color: var(--accent2); }
+  .kpi-card.pendente .kpi-val { color: var(--warn); }
+  .kpi-card.novo .kpi-val { color: var(--danger); }
+  .kpi-card.transf .kpi-val { color: #a78bfa; }
+  .kpi-sub { font-size: 11px; color: var(--text3); margin-top: 6px; font-family: var(--font-mono); }
+
+  /* CHARTS ROW */
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+  @media (max-width: 800px) { .charts-row { grid-template-columns: 1fr; } }
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+  }
+  .chart-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text2); margin-bottom: 16px; }
+
+  /* BARRA POR DESTINO */
+  .dest-bar-wrap { display: flex; flex-direction: column; gap: 8px; }
+  .dest-row { display: flex; align-items: center; gap: 10px; }
+  .dest-name { font-size: 12px; font-family: var(--font-mono); color: var(--text); min-width: 90px; text-align: right; flex-shrink: 0; }
+  .dest-bar-bg { flex: 1; height: 20px; background: var(--surface2); border-radius: 4px; overflow: hidden; position: relative; }
+  .dest-bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s cubic-bezier(.4,0,.2,1); display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; }
+  .dest-bar-fill span { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.9); font-family: var(--font-mono); }
+  .dest-pct { font-size: 11px; font-family: var(--font-mono); color: var(--text2); min-width: 36px; text-align: right; }
+
+  /* ETAPAS PENDÊNCIAS */
+  .etapa-bars { display: flex; flex-direction: column; gap: 7px; }
+  .etapa-row { display: flex; align-items: center; gap: 10px; }
+  .etapa-name { font-size: 10px; font-family: var(--font-mono); color: var(--text2); min-width: 120px; text-align: right; flex-shrink: 0; }
+  .etapa-track { flex: 1; height: 14px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .etapa-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+  .etapa-num { font-size: 10px; font-family: var(--font-mono); color: var(--text2); min-width: 20px; }
+
+  /* FILTROS */
+  .filters-row {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .filter-select, .filter-input {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); border-radius: 7px; padding: 7px 12px;
+    font-family: var(--font-head); font-size: 12px;
+    outline: none; transition: border-color 0.15s;
+  }
+  .filter-select:focus, .filter-input:focus { border-color: var(--accent); }
+  .filter-count { font-size: 12px; color: var(--text3); font-family: var(--font-mono); margin-left: auto; }
+
+  /* TABELA */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 900px; }
+  thead th {
+    background: var(--surface2); padding: 10px 10px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--text2); text-align: center; white-space: nowrap;
+    border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 2;
+  }
+  thead th:first-child { text-align: left; padding-left: 16px; }
+  tbody tr { border-bottom: 1px solid rgba(42,48,69,0.6); transition: background 0.12s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+  tbody td { padding: 9px 10px; font-size: 12px; text-align: center; vertical-align: middle; }
+  tbody td:first-child { text-align: left; padding-left: 16px; font-family: var(--font-mono); font-weight: 500; color: var(--text); }
+  .td-dest { font-size: 11px; color: var(--text2); font-family: var(--font-mono); }
+  .td-obs { font-size: 10px; color: var(--text3); text-align: left; max-width: 180px; }
+
+  /* BADGES de etapa */
+  .badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 22px; border-radius: 5px;
+    font-size: 11px; font-weight: 700; font-family: var(--font-mono);
+  }
+  .badge-ok { background: var(--ok-bg); color: var(--ok-text); }
+  .badge-pend { background: var(--pend-bg); color: var(--pend-text); }
+  .badge-na { background: var(--na-bg); color: var(--na-text); }
+  .badge-new { background: var(--new-bg); color: var(--new-text); }
+
+  /* BARRA DE PROGRESSO NA LINHA */
+  .row-progress { display: flex; align-items: center; gap: 6px; }
+  .row-bar-bg { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; min-width: 50px; }
+  .row-bar-fill { height: 100%; border-radius: 3px; }
+  .row-pct { font-size: 10px; font-family: var(--font-mono); color: var(--text2); white-space: nowrap; }
+
+  /* TABELA TRANSFERÊNCIAS */
+  .badge-transf-ok { background: var(--ok-bg); color: var(--ok-text); padding: 2px 8px; border-radius: 5px; font-size: 11px; font-family: var(--font-mono); font-weight: 700; }
+  .badge-transf-pend { background: var(--pend-bg); color: var(--pend-text); padding: 2px 8px; border-radius: 5px; font-size: 11px; font-family: var(--font-mono); font-weight: 700; }
+  .badge-transf-na { background: var(--na-bg); color: var(--na-text); padding: 2px 8px; border-radius: 5px; font-size: 11px; font-family: var(--font-mono); font-weight: 700; }
+
+  /* LOADING OVERLAY */
+  .loading-overlay {
+    position: fixed; inset: 0; background: rgba(15,17,23,0.85);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 1000; gap: 16px; backdrop-filter: blur(4px);
+  }
+  .loading-overlay.hidden { display: none; }
+  .loading-spinner {
+    width: 44px; height: 44px; border: 3px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  .loading-text { font-size: 14px; color: var(--text2); font-family: var(--font-mono); }
+
+  /* STATUS GERAL */
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px; border-radius: 20px; font-size: 10px; font-weight: 700;
+    font-family: var(--font-mono); white-space: nowrap;
+  }
+  .status-completo { background: var(--ok-bg); color: var(--ok-text); }
+  .status-andamento { background: #1a2236; color: var(--accent); }
+  .status-parcial { background: var(--pend-bg); color: var(--pend-text); }
+  .status-novo { background: var(--new-bg); color: var(--new-text); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ALERT */
+  .alert { background: var(--pend-bg); border: 1px solid var(--warn); border-radius: 8px; padding: 12px 16px; font-size: 13px; color: var(--pend-text); margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay" class="loading-overlay hidden">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loadingMsg">Buscando dados da planilha…</div>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="header-icon">🚌</div>
+    <div>
+      <div class="header-title">Legalização de Frota — Veículos Novos</div>
+      <div class="header-sub">Situação Veículos Novos · Google Drive</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="last-update" id="lastUpdate">—</div>
+    <button class="btn-refresh" id="btnRefresh" onclick="refreshData()">
+      <span id="refreshIcon">↻</span> Atualizar dados
+    </button>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('carros', this)">🚌 Carros Novos</button>
+  <button class="tab-btn" onclick="switchTab('transf', this)">🔄 Transferências</button>
+</div>
+
+<div class="main">
+
+  <!-- TAB CARROS -->
+  <div id="tab-carros" class="tab-content active">
+    <!-- KPIs -->
+    <div class="kpi-grid" id="kpiCarros"></div>
+    <!-- CHARTS -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">Veículos por destino</div>
+        <div class="dest-bar-wrap" id="chartDestino"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Etapas com pendências</div>
+        <div class="etapa-bars" id="chartEtapas"></div>
+      </div>
+    </div>
+    <!-- FILTROS -->
+    <div class="filters-row">
+      <select class="filter-select" id="filtroDestino" onchange="renderCarros()">
+        <option value="">Todos os destinos</option>
+      </select>
+      <select class="filter-select" id="filtroStatus" onchange="renderCarros()">
+        <option value="">Todos os status</option>
+        <option value="completo">Completo (100%)</option>
+        <option value="andamento">Em andamento</option>
+        <option value="novo">Recém recebido</option>
+      </select>
+      <input class="filter-input" type="text" id="buscaCarro" placeholder="Buscar veículo…" oninput="renderCarros()" style="width:160px">
+      <div class="filter-count" id="countCarros"></div>
+    </div>
+    <!-- TABELA -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Carro</th>
+            <th>Destino</th>
+            <th title="Vistoria">VST</th>
+            <th title="Processo UAI">UAI</th>
+            <th title="Emplacamento">EMP</th>
+            <th title="CRLV">CRLV</th>
+            <th title="IPVA">IPVA</th>
+            <th title="Seg. APP">APP</th>
+            <th title="Cadastro DER">DER</th>
+            <th title="Crono">CRN</th>
+            <th title="Seg. RCF">RCF</th>
+            <th title="ATF">ATF</th>
+            <th title="DVR">DVR</th>
+            <th title="Inspeção Mercedes">MERC</th>
+            <th>Progresso</th>
+            <th>Status</th>
+            <th>Observação</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyCarros"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB TRANSFERÊNCIAS -->
+  <div id="tab-transf" class="tab-content">
+    <div class="kpi-grid" id="kpiTransf"></div>
+    <div class="filters-row">
+      <select class="filter-select" id="filtroOrigTransf" onchange="renderTransf()">
+        <option value="">Toda origem</option>
+        <option value="MINAS">MINAS</option>
+        <option value="BAHIA">BAHIA</option>
+      </select>
+      <select class="filter-select" id="filtroDestTransf" onchange="renderTransf()">
+        <option value="">Todo destino</option>
+        <option value="MINAS">MINAS</option>
+        <option value="BAHIA">BAHIA</option>
+      </select>
+      <input class="filter-input" type="text" id="buscaTransf" placeholder="Buscar veículo…" oninput="renderTransf()" style="width:160px">
+      <div class="filter-count" id="countTransf"></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Carro</th>
+            <th>Gravame</th>
+            <th>Origem</th>
+            <th>Destino</th>
+            <th>Data</th>
+            <th style="text-align:left;min-width:200px">Documentação</th>
+            <th>ATPV</th>
+            <th>Envio</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyTransf"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Dados iniciais (lidos do Drive no carregamento) ───────────────────────────
+let carros = [];
+let transfs = [];
+
+const ETAPAS = ['VISTORIA','PROCESSO NO UAI','EMPLACAMENTO','CRLV','IPVA','SEG. APP','CADASTRO DER','CRONO','SEG. RCF','ATF','DVR','INSPEÇÃO MERCEDES'];
+const ETAPAS_SHORT = ['VST','UAI','EMP','CRLV','IPVA','APP','DER','CRN','RCF','ATF','DVR','MERC'];
+
+const DEST_COLORS = {
+  'MUSA':        '#4f8ef7',
+  'VALE':        '#3dd68c',
+  'CENIBRA':     '#a78bfa',
+  'BEMISA':      '#f5a623',
+  'MARIANA':     '#f25f5c',
+  'BAHIA':       '#38bdf8',
+  'ADM CENTRAL': '#fb923c',
+  'STA. BÁRB.':  '#e879f9',
+  'default':     '#8891a8',
+};
+
+function destColor(d) {
+  if (!d) return DEST_COLORS.default;
+  const k = Object.keys(DEST_COLORS).find(k => d.toUpperCase().includes(k));
+  return k ? DEST_COLORS[k] : DEST_COLORS.default;
+}
+
+// ── Normalizar valor de célula ────────────────────────────────────────────────
+function isOk(v) {
+  if (!v) return false;
+  const s = v.trim().toLowerCase();
+  return s === 'ok' || s.startsWith('ok') || s.includes('instalado') || s.includes('liberado') || s.includes('entregue');
+}
+function isNa(v) {
+  if (!v) return false;
+  const s = v.trim().toLowerCase();
+  return s === 'não precisa' || s === 'n/a' || s === '-' || s === '\\-';
+}
+function calcProgress(etapas) {
+  const aplic = etapas.filter(e => !isNa(e));
+  if (!aplic.length) return 0;
+  const ok = aplic.filter(e => isOk(e));
+  return Math.round((ok.length / aplic.length) * 100);
+}
+
+// ── Parse Markdown table ──────────────────────────────────────────────────────
+function parseMarkdownTable(md) {
+  const lines = md.split('\n').map(l => l.trim()).filter(l => l.startsWith('|') && !l.match(/^\|[\s\-:]+\|/));
+  if (!lines.length) return [];
+  const headers = lines[0].split('|').map(c => c.trim()).filter(Boolean);
+  return lines.slice(1).map(line => {
+    const cells = line.split('|').map(c => c.trim()).filter((c, i, a) => i > 0 && i < a.length - 1 || (i === 0 && c));
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = cells[i] || ''; });
+    return obj;
+  });
+}
+
+// ── Fetch dados via API Claude ────────────────────────────────────────────────
+async function fetchFromDrive() {
+  const SPREADSHEET_ID = '1JtiUNP5d0K2he07l8YNTA6otAFHcWDycxhv5ygx6sWI';
+  const prompt = `Você é um assistente de dados. Leia a planilha do Google Drive com ID "${SPREADSHEET_ID}" usando a ferramenta Google Drive e retorne o conteúdo em formato JSON.
+
+Retorne APENAS um JSON válido (sem markdown, sem texto extra) com esta estrutura:
+{
+  "carros": [
+    { "CARRO":"...", "RECEBIDO":"...", "DESTINO":"...", "VISTORIA":"...", "PROCESSO NO UAI":"...", "EMPLACAMENTO":"...", "CRLV":"...", "IPVA":"...", "SEG. APP":"...", "CADASTRO DER":"...", "CRONO":"...", "SEG. RCF":"...", "ATF":"...", "DVR":"...", "INSPEÇÃO MERCEDES":"...", "OBSERVAÇÃO":"..." }
+  ],
+  "transferencias": [
+    { "CARRO":"...", "GRAVAME":"...", "ORIGEM":"...", "DESTINO":"...", "DATA DE ENVIO/RECEBIMENTO":"...", "DOCUMENTAÇÃO":"...", "ATPV":"...", "ENVIO":"..." }
+  ]
+}`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 8000,
+      mcp_servers: [{ type: 'url', url: 'https://drivemcp.googleapis.com/mcp/v1', name: 'gdrive' }],
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  const data = await response.json();
+  const text = data.content?.filter(b => b.type === 'text').map(b => b.text).join('');
+  const clean = text?.replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
+}
+
+// ── Refresh principal ─────────────────────────────────────────────────────────
+async function refreshData() {
+  const btn = document.getElementById('btnRefresh');
+  const icon = document.getElementById('refreshIcon');
+  const overlay = document.getElementById('loadingOverlay');
+  const msg = document.getElementById('loadingMsg');
+
+  btn.classList.add('loading');
+  icon.classList.add('spin');
+  icon.textContent = '↻';
+  overlay.classList.remove('hidden');
+
+  const steps = ['Conectando ao Google Drive…', 'Lendo planilha…', 'Processando dados…', 'Montando dashboard…'];
+  let s = 0;
+  const stepInterval = setInterval(() => { if (s < steps.length) msg.textContent = steps[s++]; }, 900);
+
+  try {
+    const result = await fetchFromDrive();
+    clearInterval(stepInterval);
+
+    carros = (result.carros || []).filter(r => r.CARRO && r.CARRO.trim());
+    transfs = (result.transferencias || []).filter(r => r.CARRO && r.CARRO.trim());
+
+    buildAll();
+    const now = new Date();
+    document.getElementById('lastUpdate').textContent = `Atualizado ${now.toLocaleTimeString('pt-BR')}`;
+  } catch (err) {
+    clearInterval(stepInterval);
+    console.error(err);
+    alert('Erro ao buscar dados: ' + err.message + '\n\nVerifique se o Google Drive está conectado.');
+  } finally {
+    overlay.classList.add('hidden');
+    btn.classList.remove('loading');
+    icon.classList.remove('spin');
+  }
+}
+
+// ── Build tudo ────────────────────────────────────────────────────────────────
+function buildAll() {
+  buildKpiCarros();
+  buildChartDestino();
+  buildChartEtapas();
+  buildFilterDestino();
+  renderCarros();
+  buildKpiTransf();
+  renderTransf();
+}
+
+function buildKpiCarros() {
+  const total = carros.length;
+  const completos = carros.filter(v => calcProgress(ETAPAS.map(e => v[e])) === 100).length;
+  const novos = carros.filter(v => {
+    const etapas = ETAPAS.map(e => v[e]);
+    const aplic = etapas.filter(e => !isNa(e));
+    return aplic.filter(e => isOk(e)).length === 0;
+  }).length;
+  const andamento = total - completos - novos;
+
+  document.getElementById('kpiCarros').innerHTML = `
+    <div class="kpi-card total">
+      <div class="kpi-label">Total de veículos</div>
+      <div class="kpi-val">${total}</div>
+      <div class="kpi-sub">cadastrados</div>
+    </div>
+    <div class="kpi-card completo">
+      <div class="kpi-label">Completos</div>
+      <div class="kpi-val">${completos}</div>
+      <div class="kpi-sub">${total ? Math.round(completos/total*100) : 0}% do total</div>
+    </div>
+    <div class="kpi-card pendente">
+      <div class="kpi-label">Em andamento</div>
+      <div class="kpi-val">${andamento}</div>
+      <div class="kpi-sub">etapas em aberto</div>
+    </div>
+    <div class="kpi-card novo">
+      <div class="kpi-label">Recém recebidos</div>
+      <div class="kpi-val">${novos}</div>
+      <div class="kpi-sub">sem início</div>
+    </div>
+    <div class="kpi-card transf" style="--kpi-color:#a78bfa">
+      <div class="kpi-label">Destinos</div>
+      <div class="kpi-val" style="color:#a78bfa">${[...new Set(carros.map(v=>v.DESTINO).filter(Boolean))].length}</div>
+      <div class="kpi-sub">clientes/negócios</div>
+    </div>
+  `;
+}
+
+function buildKpiTransf() {
+  const total = transfs.length;
+  const ok = transfs.filter(t => isOk(t.DOCUMENTAÇÃO) && isOk(t.ATPV) && isOk(t.ENVIO)).length;
+  const interno = transfs.filter(t => t.DOCUMENTAÇÃO && t.DOCUMENTAÇÃO.includes('interno')).length;
+  const pend = total - ok - interno;
+
+  document.getElementById('kpiTransf').innerHTML = `
+    <div class="kpi-card total">
+      <div class="kpi-label">Total transferências</div>
+      <div class="kpi-val">${total}</div>
+    </div>
+    <div class="kpi-card completo">
+      <div class="kpi-label">Concluídas</div>
+      <div class="kpi-val">${ok}</div>
+      <div class="kpi-sub">${total ? Math.round(ok/total*100) : 0}%</div>
+    </div>
+    <div class="kpi-card pendente">
+      <div class="kpi-label">Pendentes</div>
+      <div class="kpi-val">${pend}</div>
+    </div>
+    <div class="kpi-card novo">
+      <div class="kpi-label">Rodam interno</div>
+      <div class="kpi-val">${interno}</div>
+      <div class="kpi-sub">sem transferência</div>
+    </div>
+  `;
+}
+
+function buildChartDestino() {
+  const count = {};
+  carros.forEach(v => { if (v.DESTINO) count[v.DESTINO.trim()] = (count[v.DESTINO.trim()||''] || 0) + 1; });
+  const sorted = Object.entries(count).sort((a,b) => b[1]-a[1]);
+  const max = sorted[0]?.[1] || 1;
+
+  document.getElementById('chartDestino').innerHTML = sorted.map(([dest, n]) => `
+    <div class="dest-row">
+      <div class="dest-name">${dest}</div>
+      <div class="dest-bar-bg">
+        <div class="dest-bar-fill" style="width:${n/max*100}%;background:${destColor(dest)}">
+          <span>${n}</span>
+        </div>
+      </div>
+      <div class="dest-pct">${Math.round(n/carros.length*100)}%</div>
+    </div>
+  `).join('');
+}
+
+function buildChartEtapas() {
+  const pends = ETAPAS.map((e, i) => {
+    const count = carros.filter(v => {
+      const val = v[e];
+      return val !== undefined && !isOk(val) && !isNa(val);
+    }).length;
+    return { name: ETAPAS_SHORT[i], full: e, count };
+  }).filter(e => e.count > 0).sort((a,b) => b.count - a.count);
+
+  const max = pends[0]?.count || 1;
+  document.getElementById('chartEtapas').innerHTML = pends.map(e => {
+    const pct = e.count / max * 100;
+    const color = pct > 60 ? 'var(--danger)' : pct > 30 ? 'var(--warn)' : 'var(--accent)';
+    return `<div class="etapa-row">
+      <div class="etapa-name">${e.name}</div>
+      <div class="etapa-track"><div class="etapa-fill" style="width:${pct}%;background:${color}"></div></div>
+      <div class="etapa-num">${e.count}</div>
+    </div>`;
+  }).join('') || '<div style="color:var(--accent2);font-size:13px;padding:8px 0">✔ Nenhuma etapa com pendências!</div>';
+}
+
+function buildFilterDestino() {
+  const sel = document.getElementById('filtroDestino');
+  const dests = [...new Set(carros.map(v => v.DESTINO?.trim()).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Todos os destinos</option>' + dests.map(d => `<option value="${d}">${d}</option>`).join('');
+}
+
+function badgeEtapa(val) {
+  if (isOk(val)) return '<span class="badge badge-ok">✔</span>';
+  if (isNa(val)) return '<span class="badge badge-na">—</span>';
+  if (!val || val.trim() === '') return '<span class="badge badge-new">?</span>';
+  return '<span class="badge badge-pend">!</span>';
+}
+
+function statusPill(pct) {
+  if (pct === 100) return '<span class="status-pill status-completo">● Completo</span>';
+  if (pct >= 60)   return '<span class="status-pill status-andamento">● Andamento</span>';
+  if (pct > 0)     return '<span class="status-pill status-parcial">● Parcial</span>';
+  return '<span class="status-pill status-novo">● Novo</span>';
+}
+
+function barColor(pct) {
+  if (pct === 100) return 'var(--accent2)';
+  if (pct >= 60)   return 'var(--accent)';
+  if (pct >= 30)   return 'var(--warn)';
+  return 'var(--danger)';
+}
+
+function renderCarros() {
+  const destFilt = document.getElementById('filtroDestino').value;
+  const statusFilt = document.getElementById('filtroStatus').value;
+  const busca = document.getElementById('buscaCarro').value.toLowerCase();
+
+  let data = carros.filter(v => {
+    if (destFilt && v.DESTINO?.trim() !== destFilt) return false;
+    if (busca && !v.CARRO?.toLowerCase().includes(busca) && !v.DESTINO?.toLowerCase().includes(busca) && !v.OBSERVAÇÃO?.toLowerCase().includes(busca)) return false;
+    const pct = calcProgress(ETAPAS.map(e => v[e]));
+    if (statusFilt === 'completo' && pct !== 100) return false;
+    if (statusFilt === 'andamento' && (pct === 100 || pct === 0)) return false;
+    if (statusFilt === 'novo' && pct !== 0) return false;
+    return true;
+  });
+
+  document.getElementById('countCarros').textContent = `${data.length} veículo${data.length !== 1 ? 's' : ''}`;
+
+  document.getElementById('tbodyCarros').innerHTML = data.map(v => {
+    const etapas = ETAPAS.map(e => v[e] || '');
+    const pct = calcProgress(etapas);
+    const color = barColor(pct);
+    return `<tr>
+      <td>${v.CARRO}</td>
+      <td class="td-dest">${v.DESTINO || '—'}</td>
+      ${etapas.map(e => `<td>${badgeEtapa(e)}</td>`).join('')}
+      <td>
+        <div class="row-progress">
+          <div class="row-bar-bg"><div class="row-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+          <div class="row-pct">${pct}%</div>
+        </div>
+      </td>
+      <td>${statusPill(pct)}</td>
+      <td class="td-obs">${v.OBSERVAÇÃO || ''}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="18" style="text-align:center;color:var(--text3);padding:24px">Nenhum veículo encontrado</td></tr>';
+}
+
+function bTok(v, interno) {
+  if (!v || !v.trim()) {
+    return interno
+      ? '<span class="badge-transf-na">N/A</span>'
+      : '<span class="badge-transf-pend">Pend.</span>';
+  }
+  if (isOk(v)) return '<span class="badge-transf-ok">✔ OK</span>';
+  return `<span style="font-size:11px;color:var(--text2)">${v}</span>`;
+}
+
+function renderTransf() {
+  const origFilt = document.getElementById('filtroOrigTransf').value;
+  const destFilt = document.getElementById('filtroDestTransf').value;
+  const busca = document.getElementById('buscaTransf').value.toLowerCase();
+
+  let data = transfs.filter(t => {
+    if (origFilt && t.ORIGEM !== origFilt) return false;
+    if (destFilt && t.DESTINO !== destFilt) return false;
+    if (busca && !t.CARRO?.toLowerCase().includes(busca)) return false;
+    return true;
+  });
+
+  document.getElementById('countTransf').textContent = `${data.length} veículo${data.length !== 1 ? 's' : ''}`;
+
+  document.getElementById('tbodyTransf').innerHTML = data.map(t => {
+    const interno = t.DOCUMENTAÇÃO?.includes('interno');
+    const ok = isOk(t.DOCUMENTAÇÃO) && isOk(t.ATPV) && isOk(t.ENVIO);
+    const statusLabel = interno ? '<span class="badge-transf-na">Interno</span>'
+                      : ok     ? '<span class="badge-transf-ok">✔ Concluído</span>'
+                               : '<span class="badge-transf-pend">Pendente</span>';
+    return `<tr>
+      <td>${t.CARRO}</td>
+      <td class="td-dest">${t.GRAVAME || ''}</td>
+      <td class="td-dest">${t.ORIGEM || ''}</td>
+      <td class="td-dest">${t.DESTINO || ''}</td>
+      <td class="td-dest">${t['DATA DE ENVIO/RECEBIMENTO'] || ''}</td>
+      <td style="text-align:left;font-size:11px;color:var(--text2)">${t.DOCUMENTAÇÃO || '—'}</td>
+      <td>${bTok(t.ATPV, interno)}</td>
+      <td>${bTok(t.ENVIO, interno)}</td>
+      <td>${statusLabel}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:24px">Nenhum registro encontrado</td></tr>';
+}
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+// ── Inicialização com dados estáticos (snapshot atual) ───────────────────────
+carros = [
+  {CARRO:'M-2120',RECEBIDO:'OK',DESTINO:'VALE',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'Não precisa',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'Enviado para Vale 21/01/2026'},
+  {CARRO:'M-2130',RECEBIDO:'OK',DESTINO:'BEMISA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'Não precisa',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'LIBERADO'},
+  {CARRO:'M-2140',RECEBIDO:'OK',DESTINO:'BEMISA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'Não precisa',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'Veículo liberado para Bemisa'},
+  {CARRO:'M-2150',RECEBIDO:'OK',DESTINO:'BEMISA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'Não precisa',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'LIBERADO'},
+  {CARRO:'M-2160',RECEBIDO:'OK',DESTINO:'BEMISA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'LIBERADO'},
+  {CARRO:'M-2170',RECEBIDO:'OK',DESTINO:'BEMISA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'LIBERADO'},
+  {CARRO:'M-2180',RECEBIDO:'OK',DESTINO:'VALE',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'Não precisa',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'Enviado para Vale 20/01/2026'},
+  {CARRO:'M-2190',RECEBIDO:'OK',DESTINO:'VALE',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'Não precisa',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'Enviados para Vale'},
+  {CARRO:'M-2200',RECEBIDO:'OK',DESTINO:'VALE',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'Não precisa',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'Enviados para Vale'},
+  {CARRO:'M-2210',RECEBIDO:'OK',DESTINO:'VALE',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'Não precisa',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'Enviados para Vale'},
+  {CARRO:'M-2220',RECEBIDO:'OK',DESTINO:'VALE',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'Não precisa',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'Enviados para Vale Mariana'},
+  {CARRO:'M-2230',RECEBIDO:'OK',DESTINO:'VALE',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'Não precisa',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'Enviados para Vale Mariana'},
+  {CARRO:'F-2430',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'Ok','OBSERVAÇÃO':'LIBERADO. Enviado para Musa 21/01/2026'},
+  {CARRO:'F-2440',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'LIBERADO. Enviado para Musa 12/01/2026'},
+  {CARRO:'F-2450',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'Enviado para Musa 24/01/2026'},
+  {CARRO:'F-2460',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'LIBERADO. Enviado para Musa 21/01/2026'},
+  {CARRO:'F-2470',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'LIBERADO. Enviado para Musa 29/01/2026'},
+  {CARRO:'F-2480',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'Ok','OBSERVAÇÃO':''},
+  {CARRO:'F-2490',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'ENTREGUE'},
+  {CARRO:'F-2500',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'ENTREGUE'},
+  {CARRO:'F-2510',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'ENTREGUE'},
+  {CARRO:'F-2520',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'ENTREGUE'},
+  {CARRO:'F-2530',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':'ENTREGUE'},
+  {CARRO:'F-2540',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'Ok','OBSERVAÇÃO':'ENTREGUE'},
+  {CARRO:'F-2550',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'',ATF:'OK',DVR:'INSTALADO COM MICROFONE','INSPEÇÃO MERCEDES':'Ok','OBSERVAÇÃO':''},
+  {CARRO:'F-2560',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'',ATF:'OK',DVR:'INSTALADO SEM MICROFONE','INSPEÇÃO MERCEDES':'Ok','OBSERVAÇÃO':''},
+  {CARRO:'F-2570',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'Ok','OBSERVAÇÃO':''},
+  {CARRO:'F-2580',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'Ok','OBSERVAÇÃO':''},
+  {CARRO:'F-2590',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'Ok','OBSERVAÇÃO':''},
+  {CARRO:'F-2600',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'INSTALADO COM MICROFONE','INSPEÇÃO MERCEDES':'Ok','OBSERVAÇÃO':''},
+  {CARRO:'F-2610',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'',ATF:'OK',DVR:'','INSPEÇÃO MERCEDES':'Ok','OBSERVAÇÃO':''},
+  {CARRO:'F-2620',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'INSTALADO COM MICROFONE','INSPEÇÃO MERCEDES':'Ok','OBSERVAÇÃO':''},
+  {CARRO:'F-2630',RECEBIDO:'OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'INSTALADO COM MICROFONE','INSPEÇÃO MERCEDES':'Ok','OBSERVAÇÃO':''},
+  {CARRO:'F-2640',RECEBIDO:'06/04 ok',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'INSTALADO COM MICROFONE','INSPEÇÃO MERCEDES':'','OBSERVAÇÃO':''},
+  {CARRO:'F-2650',RECEBIDO:'13/04 ok',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'INSTALADO COM MICROFONE','INSPEÇÃO MERCEDES':'','OBSERVAÇÃO':''},
+  {CARRO:'F-2660',RECEBIDO:'Não chegou',DESTINO:'',VISTORIA:'','PROCESSO NO UAI':'',EMPLACAMENTO:'',CRLV:'',IPVA:'','SEG. APP':'','CADASTRO DER':'',CRONO:'','SEG. RCF':'',ATF:'',DVR:'','INSPEÇÃO MERCEDES':'','OBSERVAÇÃO':'Somente após 20/03'},
+  {CARRO:'F-2670',RECEBIDO:'01/04 - OK',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'','SEG. APP':'OK','CADASTRO DER':'',CRONO:'',ATF:'',DVR:'','INSPEÇÃO MERCEDES':'','OBSERVAÇÃO':''},
+  {CARRO:'F-2680',RECEBIDO:'22/04',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'',EMPLACAMENTO:'',CRLV:'',IPVA:'','SEG. APP':'','CADASTRO DER':'',CRONO:'','SEG. RCF':'',ATF:'',DVR:'','INSPEÇÃO MERCEDES':'','OBSERVAÇÃO':''},
+  {CARRO:'F-2690',RECEBIDO:'22/04',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'',EMPLACAMENTO:'',CRLV:'',IPVA:'','SEG. APP':'','CADASTRO DER':'',CRONO:'','SEG. RCF':'',ATF:'',DVR:'','INSPEÇÃO MERCEDES':'','OBSERVAÇÃO':''},
+  {CARRO:'F2700',RECEBIDO:'27/04',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'',EMPLACAMENTO:'',CRLV:'',IPVA:'','SEG. APP':'','CADASTRO DER':'',CRONO:'','SEG. RCF':'',ATF:'',DVR:'','INSPEÇÃO MERCEDES':'','OBSERVAÇÃO':''},
+  {CARRO:'F2710',RECEBIDO:'27/04',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'',EMPLACAMENTO:'',CRLV:'',IPVA:'','SEG. APP':'','CADASTRO DER':'',CRONO:'','SEG. RCF':'',ATF:'',DVR:'','INSPEÇÃO MERCEDES':'','OBSERVAÇÃO':''},
+  {CARRO:'F2720',RECEBIDO:'28/04',DESTINO:'MUSA',VISTORIA:'OK','PROCESSO NO UAI':'',EMPLACAMENTO:'',CRLV:'',IPVA:'','SEG. APP':'','CADASTRO DER':'',CRONO:'','SEG. RCF':'',ATF:'',DVR:'','INSPEÇÃO MERCEDES':'','OBSERVAÇÃO':''},
+  {CARRO:'R0310',RECEBIDO:'OK',DESTINO:'Cenibra',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'OK','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':''},
+  {CARRO:'R-0320',RECEBIDO:'OK',DESTINO:'Cenibra',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'OK','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':''},
+  {CARRO:'R-0330',RECEBIDO:'OK',DESTINO:'Cenibra',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'OK','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':''},
+  {CARRO:'R-0340',RECEBIDO:'OK',DESTINO:'Cenibra',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'OK','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':''},
+  {CARRO:'R-0350',RECEBIDO:'OK',DESTINO:'Cenibra',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'OK',ATF:'OK',DVR:'OK','INSPEÇÃO MERCEDES':'OK','OBSERVAÇÃO':''},
+  {CARRO:'POLO 01',RECEBIDO:'OK',DESTINO:'MARIANA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'-',CRONO:'-','SEG. RCF':'-',ATF:'-',DVR:'','INSPEÇÃO MERCEDES':'','OBSERVAÇÃO':''},
+  {CARRO:'POLO 02',RECEBIDO:'OK',DESTINO:'MARIANA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'-',CRONO:'-','SEG. RCF':'-',ATF:'-',DVR:'-','INSPEÇÃO MERCEDES':'','OBSERVAÇÃO':''},
+  {CARRO:'POLO 03',RECEBIDO:'OK',DESTINO:'BAHIA',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'-',CRONO:'-','SEG. RCF':'-',ATF:'-',DVR:'-','INSPEÇÃO MERCEDES':'','OBSERVAÇÃO':''},
+  {CARRO:'V0370',RECEBIDO:'Ok',DESTINO:'ADM CENTRAL',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'-',ATF:'-',DVR:'-','INSPEÇÃO MERCEDES':'','OBSERVAÇÃO':''},
+  {CARRO:'V0380',RECEBIDO:'Ok',DESTINO:'ADM CENTRAL',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'-',ATF:'-',DVR:'-','INSPEÇÃO MERCEDES':'','OBSERVAÇÃO':''},
+  {CARRO:'M2240',RECEBIDO:'Ok',DESTINO:'STA. BÁRB.',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'Não precisa',ATF:'OK',DVR:'OK','INSPEÇÃO MERCEDES':'','OBSERVAÇÃO':''},
+  {CARRO:'M2250',RECEBIDO:'Ok',DESTINO:'STA. BÁRB.',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'OK',CRONO:'OK','SEG. RCF':'Não precisa',ATF:'OK',DVR:'OK','INSPEÇÃO MERCEDES':'','OBSERVAÇÃO':''},
+  {CARRO:'M2260',RECEBIDO:'Ok',DESTINO:'STA. BÁRB.',VISTORIA:'OK','PROCESSO NO UAI':'OK',EMPLACAMENTO:'OK',CRLV:'OK',IPVA:'OK','SEG. APP':'OK','CADASTRO DER':'',CRONO:'OK','SEG. RCF':'Não precisa',ATF:'',DVR:'OK','INSPEÇÃO MERCEDES':'','OBSERVAÇÃO':''},
+];
+
+transfs = [
+  {CARRO:'M0780',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'16/01/2026',DOCUMENTAÇÃO:'',ATPV:'',ENVIO:'OK'},
+  {CARRO:'M0450',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'16/01/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'F0230',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'16/01/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'F0050',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'23/01/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'F0060',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'23/01/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'12380',GRAVAME:'-',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'23/01/2026',DOCUMENTAÇÃO:'Não faremos transferência, vai rodar interno',ATPV:'',ENVIO:''},
+  {CARRO:'12390',GRAVAME:'-',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'23/01/2026',DOCUMENTAÇÃO:'Não faremos transferência, vai rodar interno',ATPV:'',ENVIO:''},
+  {CARRO:'12410',GRAVAME:'-',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'23/01/2026',DOCUMENTAÇÃO:'Não faremos transferência, vai rodar interno',ATPV:'',ENVIO:''},
+  {CARRO:'F0030',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'30/01/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'F0070',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'30/01/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'12550',GRAVAME:'-',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'30/01/2026',DOCUMENTAÇÃO:'Não faremos transferência, vai rodar interno',ATPV:'',ENVIO:''},
+  {CARRO:'T3234',GRAVAME:'-',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'30/01/2026',DOCUMENTAÇÃO:'Não faremos transferência, vai rodar interno',ATPV:'',ENVIO:''},
+  {CARRO:'F0040',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'06/02/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'F0250',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'06/02/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'F0080',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'06/02/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'R0280',GRAVAME:'TUDO OK',ORIGEM:'BAHIA',DESTINO:'MINAS','DATA DE ENVIO/RECEBIMENTO':'30/01/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'F0120',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'13/02/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'F0140',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'13/02/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'F0300',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'13/02/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'M0820',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'13/02/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'F0210',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'06/03/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'M0810',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'06/03/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'M0830',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'06/03/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'M0900',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'13/03/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'M0910',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'13/03/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'F1450',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'13/03/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'F1480',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'13/03/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'F1500',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'13/03/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'F0100',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'02/04/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'F0110',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'02/04/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'F0130',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'02/04/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'V0190',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'10/04/2026',DOCUMENTAÇÃO:'OK',ATPV:'OK',ENVIO:'OK'},
+  {CARRO:'F0150',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'20/04/2026',DOCUMENTAÇÃO:'',ATPV:'',ENVIO:''},
+  {CARRO:'F0170',GRAVAME:'TUDO OK',ORIGEM:'MINAS',DESTINO:'BAHIA','DATA DE ENVIO/RECEBIMENTO':'20/04/2026',DOCUMENTAÇÃO:'',ATPV:'',ENVIO:''},
+];
+
+// Renderizar com dados iniciais
+buildAll();
+document.getElementById('lastUpdate').textContent = 'Snapshot 29/04/2026 — clique em Atualizar para buscar dados recentes';
+</script>
+</body>
+</html>
